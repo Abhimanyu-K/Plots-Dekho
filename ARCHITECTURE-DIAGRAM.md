@@ -1,0 +1,764 @@
+# 🏗️ PLOTS DEKHO - SYSTEM ARCHITECTURE
+## Visual Diagrams & Data Flow
+
+---
+
+## 📊 HIGH-LEVEL SYSTEM ARCHITECTURE
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         CLIENT DEVICES                               │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐ │
+│  │   Web Browser   │    │  Mobile App     │    │  Mobile Web     │ │
+│  │   (Desktop)     │    │  (iOS/Android)  │    │   (Responsive)  │ │
+│  └────────┬────────┘    └────────┬────────┘    └────────┬────────┘ │
+│           │                      │                       │          │
+└───────────┼──────────────────────┼───────────────────────┼──────────┘
+            │                      │                       │
+            └──────────────────────┼───────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                          CDN / EDGE CACHE                            │
+│                        (CloudFront/Cloudflare)                       │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+                ┌──────────────┴──────────────┐
+                ▼                             ▼
+┌───────────────────────────┐    ┌───────────────────────────┐
+│     FRONTEND LAYER        │    │      BACKEND LAYER        │
+│      (Next.js App)        │    │     (NestJS API)          │
+│      Hosted: Vercel       │    │    Hosted: Railway        │
+│                           │    │                           │
+│  ┌─────────────────────┐  │    │  ┌─────────────────────┐  │
+│  │  App Router Pages   │  │    │  │   Controllers       │  │
+│  │  - Home             │  │    │  │   - Auth           │  │
+│  │  - Properties       │  │    │  │   - Properties     │  │
+│  │  - Auth             │  │    │  │   - Users          │  │
+│  │  - Dashboard        │  │    │  └──────────┬──────────┘  │
+│  └──────────┬──────────┘  │    │             │             │
+│             │              │    │  ┌──────────▼──────────┐  │
+│  ┌──────────▼──────────┐  │    │  │    Services         │  │
+│  │   Components        │  │    │  │   - Business Logic  │  │
+│  │   - UI (shadcn)     │  │    │  │   - Validation      │  │
+│  │   - Features        │  │    │  └──────────┬──────────┘  │
+│  │   - Layout          │  │    │             │             │
+│  └──────────┬──────────┘  │    │  ┌──────────▼──────────┐  │
+│             │              │    │  │   Middleware        │  │
+│  ┌──────────▼──────────┐  │    │  │   - Guards          │  │
+│  │   State Management  │  │    │  │   - Interceptors    │  │
+│  │   - Zustand Stores  │  │    │  │   - Filters         │  │
+│  │   - Auth Store      │  │    │  └──────────┬──────────┘  │
+│  │   - Form Store      │  │    │             │             │
+│  └──────────┬──────────┘  │    │  ┌──────────▼──────────┐  │
+│             │              │    │  │   Prisma ORM        │  │
+│  ┌──────────▼──────────┐  │    │  │   - Models          │  │
+│  │   API Client        │◄─┼────┼─►│   - Queries         │  │
+│  │   - Axios           │  │    │  │   - Migrations      │  │
+│  │   - Interceptors    │  │    │  └──────────┬──────────┘  │
+│  └─────────────────────┘  │    │             │             │
+│                           │    │             │             │
+└───────────────────────────┘    └─────────────┼─────────────┘
+                                               │
+                        ┌──────────────────────┼──────────────────────┐
+                        │                      │                      │
+                        ▼                      ▼                      ▼
+         ┌──────────────────────┐  ┌──────────────────┐  ┌─────────────────────┐
+         │  PostgreSQL Database │  │  Redis Cache     │  │  Meilisearch        │
+         │  - Users             │  │  - Sessions      │  │  - Property Search  │
+         │  - Properties        │  │  - Temp Data     │  │  - Autocomplete     │
+         │  - Images            │  │  - Queue Jobs    │  │  - Filters          │
+         │  - Relations         │  │                  │  │                     │
+         │  Hosted: Railway     │  │  Hosted: Railway │  │  Hosted: Cloud      │
+         └──────────────────────┘  └──────────────────┘  └─────────────────────┘
+                        │
+                        │
+         ┌──────────────┴──────────────┐
+         ▼                             ▼
+┌──────────────────┐          ┌──────────────────┐
+│  Cloudinary      │          │  AWS S3          │
+│  - Image Storage │          │  - File Storage  │
+│  - Transform     │          │  - Backups       │
+│  - CDN           │          │                  │
+└──────────────────┘          └──────────────────┘
+         │                             │
+         └──────────────┬──────────────┘
+                        │
+                        ▼
+         ┌──────────────────────────────┐
+         │   EXTERNAL SERVICES          │
+         ├──────────────────────────────┤
+         │  - Google Maps API           │
+         │  - Mapbox                    │
+         │  - Razorpay (Payments)       │
+         │  - Twilio (SMS)              │
+         │  - Resend (Email)            │
+         │  - Clerk (Auth - Optional)   │
+         │  - Sentry (Monitoring)       │
+         └──────────────────────────────┘
+```
+
+---
+
+## 🔐 AUTHENTICATION FLOW
+
+```
+┌─────────────┐                  ┌──────────────┐                 ┌──────────────┐
+│   Browser   │                  │  Next.js App │                 │  NestJS API  │
+└──────┬──────┘                  └──────┬───────┘                 └──────┬───────┘
+       │                                │                                │
+       │ 1. User fills registration form│                                │
+       │────────────────────────────────▶                                │
+       │                                │                                │
+       │                                │ 2. POST /auth/register         │
+       │                                │   { email, password, name }    │
+       │                                │───────────────────────────────▶│
+       │                                │                                │
+       │                                │                                │ 3. Validate
+       │                                │                                │    & Hash
+       │                                │                                │    Password
+       │                                │                                │
+       │                                │                                │ 4. Create User
+       │                                │                                │    in Database
+       │                                │                                │
+       │                                │                                │ 5. Generate
+       │                                │                                │    JWT Tokens
+       │                                │                                │
+       │                                │ 6. Return { user, tokens }     │
+       │                                │◀───────────────────────────────│
+       │                                │                                │
+       │ 7. Store tokens in:            │                                │
+       │    - localStorage (access)     │                                │
+       │    - Zustand store             │                                │
+       │◀───────────────────────────────│                                │
+       │                                │                                │
+       │ 8. Redirect to /dashboard      │                                │
+       │◀───────────────────────────────│                                │
+       │                                │                                │
+       │                                │                                │
+       │ === SUBSEQUENT REQUESTS ===    │                                │
+       │                                │                                │
+       │ 9. Navigate to protected route │                                │
+       │────────────────────────────────▶                                │
+       │                                │                                │
+       │                                │ 10. Check AuthStore            │
+       │                                │     isAuthenticated?           │
+       │                                │                                │
+       │                                │ 11. GET /users/me              │
+       │                                │     Authorization: Bearer {token}
+       │                                │───────────────────────────────▶│
+       │                                │                                │
+       │                                │                                │ 12. JWT Guard
+       │                                │                                │     Validates
+       │                                │                                │     Token
+       │                                │                                │
+       │                                │                                │ 13. Decode
+       │                                │                                │     payload
+       │                                │                                │     Get user
+       │                                │                                │
+       │                                │ 14. Return user data           │
+       │                                │◀───────────────────────────────│
+       │                                │                                │
+       │ 15. Render dashboard           │                                │
+       │◀───────────────────────────────│                                │
+       │                                │                                │
+       │                                │                                │
+       │ === TOKEN EXPIRED ===          │                                │
+       │                                │                                │
+       │ 16. API request fails (401)    │                                │
+       │◀───────────────────────────────┼────────────────────────────────│
+       │                                │                                │
+       │                                │ 17. POST /auth/refresh         │
+       │                                │     { refreshToken }           │
+       │                                │───────────────────────────────▶│
+       │                                │                                │
+       │                                │                                │ 18. Validate
+       │                                │                                │     Refresh
+       │                                │                                │     Token
+       │                                │                                │
+       │                                │ 19. Return new access token    │
+       │                                │◀───────────────────────────────│
+       │                                │                                │
+       │ 20. Update token in store      │                                │
+       │◀───────────────────────────────│                                │
+       │                                │                                │
+       │ 21. Retry original request     │                                │
+       │────────────────────────────────┼───────────────────────────────▶│
+       │                                │                                │
+```
+
+---
+
+## 🏠 PROPERTY CREATION FLOW
+
+```
+┌─────────┐         ┌──────────┐         ┌─────────┐         ┌──────────┐         ┌──────────┐
+│ Browser │         │Frontend  │         │Backend  │         │Cloudinary│         │PostgreSQL│
+└────┬────┘         └────┬─────┘         └────┬────┘         └────┬─────┘         └────┬─────┘
+     │                   │                    │                   │                    │
+     │ Click "Post       │                    │                   │                    │
+     │ Property"         │                    │                   │                    │
+     │──────────────────▶│                    │                   │                    │
+     │                   │                    │                   │                    │
+     │                   │ Load Form Wizard   │                   │                    │
+     │◀──────────────────│                    │                   │                    │
+     │                   │                    │                   │                    │
+     │                   │ Initialize         │                   │                    │
+     │                   │ PropertyFormStore  │                   │                    │
+     │                   │ currentStep: 1     │                   │                    │
+     │                   │                    │                   │                    │
+     │ Fill Step 1       │                    │                   │                    │
+     │ (Property Type)   │                    │                   │                    │
+     │──────────────────▶│                    │                   │                    │
+     │                   │ updateFormData({   │                   │                    │
+     │                   │   propertyType,    │                   │                    │
+     │                   │   listingType      │                   │                    │
+     │                   │ })                 │                   │                    │
+     │                   │ nextStep()         │                   │                    │
+     │                   │                    │                   │                    │
+     │ ... (Steps 2-6)   │                    │                   │                    │
+     │ Fill all fields   │                    │                   │                    │
+     │──────────────────▶│ Store in formData  │                   │                    │
+     │                   │                    │                   │                    │
+     │                   │                    │                   │                    │
+     │ Step 7: Submit    │                    │                   │                    │
+     │──────────────────▶│                    │                   │                    │
+     │                   │                    │                   │                    │
+     │                   │ 1. POST /properties│                   │                    │
+     │                   │   (JSON data)      │                   │                    │
+     │                   │────────────────────▶                   │                    │
+     │                   │                    │                   │                    │
+     │                   │                    │ Validate DTO      │                    │
+     │                   │                    │ Check @UseGuards  │                    │
+     │                   │                    │ Get user from JWT │                    │
+     │                   │                    │                   │                    │
+     │                   │                    │ prisma.property.create()                │
+     │                   │                    │────────────────────────────────────────▶│
+     │                   │                    │                   │                    │
+     │                   │                    │                   │          Create record
+     │                   │                    │                   │          with relations
+     │                   │                    │                   │                    │
+     │                   │                    │ Return property   │                    │
+     │                   │                    │◀────────────────────────────────────────│
+     │                   │                    │ { id, ...data }   │                    │
+     │                   │                    │                   │                    │
+     │                   │ Return { property }│                   │                    │
+     │                   │◀────────────────────                   │                    │
+     │                   │                    │                   │                    │
+     │                   │ 2. If images exist,│                   │                    │
+     │                   │   POST /properties │                   │                    │
+     │                   │   /:id/images      │                   │                    │
+     │                   │   (multipart)      │                   │                    │
+     │                   │────────────────────▶                   │                    │
+     │                   │                    │                   │                    │
+     │                   │                    │ Loop through files│                    │
+     │                   │                    │ Upload each       │                    │
+     │                   │                    │───────────────────▶                    │
+     │                   │                    │                   │                    │
+     │                   │                    │                   │ Transform & Store  │
+     │                   │                    │                   │ Generate URLs      │
+     │                   │                    │                   │                    │
+     │                   │                    │ Return URLs       │                    │
+     │                   │                    │◀───────────────────                    │
+     │                   │                    │                   │                    │
+     │                   │                    │ Save URLs to DB   │                    │
+     │                   │                    │────────────────────────────────────────▶│
+     │                   │                    │                   │                    │
+     │                   │                    │                   │        Create image
+     │                   │                    │                   │        records
+     │                   │                    │                   │                    │
+     │                   │ Return success     │                   │                    │
+     │                   │◀────────────────────                   │                    │
+     │                   │                    │                   │                    │
+     │ Success toast     │                    │                   │                    │
+     │ Redirect to       │                    │                   │                    │
+     │ /properties/:id   │                    │                   │                    │
+     │◀──────────────────│                    │                   │                    │
+     │                   │                    │                   │                    │
+     │                   │ resetForm()        │                   │                    │
+     │                   │                    │                   │                    │
+```
+
+---
+
+## 🔍 SEARCH & FILTER FLOW
+
+```
+┌──────────┐        ┌───────────┐        ┌──────────┐        ┌────────────┐        ┌──────────┐
+│  User    │        │ Frontend  │        │ Backend  │        │Meilisearch │        │PostgreSQL│
+└────┬─────┘        └─────┬─────┘        └────┬─────┘        └─────┬──────┘        └────┬─────┘
+     │                    │                   │                    │                     │
+     │ 1. Type "Bangalore"│                   │                    │                     │
+     │    in search box   │                   │                    │                     │
+     │───────────────────▶│                   │                    │                     │
+     │                    │                   │                    │                     │
+     │                    │ Debounce (300ms)  │                    │                     │
+     │                    │                   │                    │                     │
+     │                    │ 2. GET /localities│                    │                     │
+     │                    │    /search?q=Bang │                    │                     │
+     │                    │──────────────────▶│                    │                     │
+     │                    │                   │                    │                     │
+     │                    │                   │ 3. Query Meili     │                     │
+     │                    │                   │    search index    │                     │
+     │                    │                   │───────────────────▶│                     │
+     │                    │                   │                    │                     │
+     │                    │                   │                    │ Full-text search    │
+     │                    │                   │                    │ "Bang*"             │
+     │                    │                   │                    │                     │
+     │                    │                   │ 4. Return matches  │                     │
+     │                    │                   │◀───────────────────│                     │
+     │                    │                   │                    │                     │
+     │                    │ 5. Return          │                    │                     │
+     │                    │    suggestions     │                    │                     │
+     │                    │◀──────────────────│                    │                     │
+     │                    │                    │                    │                     │
+     │ 6. Show dropdown   │                    │                    │                     │
+     │    - Bangalore     │                    │                    │                     │
+     │    - Bangaluru     │                    │                    │                     │
+     │◀───────────────────│                    │                    │                     │
+     │                    │                    │                    │                     │
+     │ 7. Click "Bangalore"│                   │                    │                     │
+     │───────────────────▶│                    │                    │                     │
+     │                    │                    │                    │                     │
+     │                    │ 8. Update URL:     │                    │                     │
+     │                    │    /properties?    │                    │                     │
+     │                    │    city=Bangalore  │                    │                     │
+     │                    │                    │                    │                     │
+     │                    │ 9. GET /properties │                    │                     │
+     │                    │    /search?        │                    │                     │
+     │                    │    city=Bangalore& │                    │                     │
+     │                    │    page=1&limit=20 │                    │                     │
+     │                    │──────────────────▶│                    │                     │
+     │                    │                   │                    │                     │
+     │                    │                   │ 10. Build Prisma   │                     │
+     │                    │                   │     where clause   │                     │
+     │                    │                   │     { city: 'Bangalore' }                │
+     │                    │                   │──────────────────────────────────────────▶│
+     │                    │                   │                    │                     │
+     │                    │                   │                    │        Query with
+     │                    │                   │                    │        filters &
+     │                    │                   │                    │        pagination
+     │                    │                   │                    │                     │
+     │                    │                   │ 11. Return results │                     │
+     │                    │                   │◀──────────────────────────────────────────│
+     │                    │                   │     + count        │                     │
+     │                    │                   │                    │                     │
+     │                    │ 12. Format response│                   │                     │
+     │                    │     { data, meta } │                    │                     │
+     │                    │◀──────────────────│                    │                     │
+     │                    │                    │                    │                     │
+     │ 13. Render results │                    │                    │                     │
+     │     Grid of        │                    │                    │                     │
+     │     PropertyCards  │                    │                    │                     │
+     │◀───────────────────│                    │                    │                     │
+     │                    │                    │                    │                     │
+     │                    │                    │                    │                     │
+     │ 14. Apply filter:  │                    │                    │                     │
+     │     Price: 10k-30k │                    │                    │                     │
+     │     BHK: 2-3       │                    │                    │                     │
+     │───────────────────▶│                    │                    │                     │
+     │                    │                    │                    │                     │
+     │                    │ 15. Update URL:    │                    │                     │
+     │                    │     ...&minPrice=  │                    │                     │
+     │                    │     10000&maxPrice=│                    │                     │
+     │                    │     30000&bedrooms=│                    │                     │
+     │                    │     2,3            │                    │                     │
+     │                    │                    │                    │                     │
+     │                    │ 16. Re-fetch with  │                    │                     │
+     │                    │     new params     │                    │                     │
+     │                    │──────────────────▶│                    │                     │
+     │                    │                   │                    │                     │
+     │                    │                   │ Add to where:      │                     │
+     │                    │                   │ {                  │                     │
+     │                    │                   │   city: 'Bangalore',│                    │
+     │                    │                   │   price: { gte: 10000, lte: 30000 },     │
+     │                    │                   │   bedrooms: { in: [2, 3] }               │
+     │                    │                   │ }                  │                     │
+     │                    │                   │──────────────────────────────────────────▶│
+     │                    │                   │                    │                     │
+     │                    │                   │ Return filtered    │                     │
+     │                    │                   │◀──────────────────────────────────────────│
+     │                    │                   │                    │                     │
+     │                    │ 17. Update results │                   │                     │
+     │                    │◀──────────────────│                    │                     │
+     │                    │                    │                    │                     │
+     │ 18. Show filtered  │                    │                    │                     │
+     │     properties     │                    │                    │                     │
+     │◀───────────────────│                    │                    │                     │
+     │                    │                    │                    │                     │
+```
+
+---
+
+## 💾 DATABASE SCHEMA RELATIONSHIPS
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         DATABASE SCHEMA                         │
+└─────────────────────────────────────────────────────────────────┘
+
+                              ┌──────────────┐
+                              │    users     │
+                              ├──────────────┤
+                              │ id (PK)      │
+                              │ email        │
+                              │ password     │
+                              │ name         │
+                              │ role         │
+                              │ avatarUrl    │
+                              │ isVerified   │
+                              └──────┬───────┘
+                                     │
+                    ┌────────────────┼────────────────┐
+                    │                │                │
+                    │                │                │
+         ┌──────────▼──────┐  ┌──────▼────────┐  ┌──▼─────────────┐
+         │ properties (1:M) │  │verification_  │  │refresh_tokens  │
+         ├─────────────────┤  │tokens (1:M)   │  │(1:M)           │
+         │ id (PK)         │  ├───────────────┤  ├────────────────┤
+         │ userId (FK)     │  │ id (PK)       │  │ id (PK)        │
+         │ title           │  │ userId (FK)   │  │ userId (FK)    │
+         │ description     │  │ token         │  │ token          │
+         │ propertyType    │  │ type          │  │ expiresAt      │
+         │ listingType     │  │ expiresAt     │  └────────────────┘
+         │ price           │  └───────────────┘
+         │ bedrooms        │
+         │ bathrooms       │
+         │ city            │
+         │ latitude        │
+         │ longitude       │
+         │ status          │
+         │ viewsCount      │
+         └────────┬────────┘
+                  │
+         ┌────────┼────────┐
+         │        │        │
+    ┌────▼─────┐  │  ┌─────▼──────────────┐
+    │property_ │  │  │property_amenities  │
+    │images    │  │  │(Junction M:M)      │
+    │(1:M)     │  │  ├────────────────────┤
+    ├──────────┤  │  │ propertyId (FK)    │
+    │ id (PK)  │  │  │ amenityId (FK)     │
+    │propertyId│  │  └──────────┬─────────┘
+    │ imageUrl │  │             │
+    │isPrimary │  │             │
+    │ order    │  │      ┌──────▼─────────┐
+    └──────────┘  │      │   amenities    │
+                  │      ├────────────────┤
+                  │      │ id (PK)        │
+                  │      │ name           │
+                  │      │ category       │
+                  │      │ icon           │
+                  │      └────────────────┘
+                  │
+         ┌────────┼────────┐
+         │        │        │
+    ┌────▼─────┐  │  ┌─────▼──────┐
+    │favorites │  │  │  reviews   │
+    │(M:M)     │  │  │  (1:M)     │
+    ├──────────┤  │  ├────────────┤
+    │ id (PK)  │  │  │ id (PK)    │
+    │ userId   │  │  │ propertyId │
+    │propertyId│  │  │ userId     │
+    └──────────┘  │  │ rating     │
+                  │  │ comment    │
+                  │  └────────────┘
+                  │
+            ┌─────▼──────┐
+            │   leads    │
+            │   (1:M)    │
+            ├────────────┤
+            │ id (PK)    │
+            │ propertyId │
+            │ seekerId   │
+            │ ownerId    │
+            │ message    │
+            │ status     │
+            └────────────┘
+
+Legend:
+  PK  = Primary Key
+  FK  = Foreign Key
+  1:M = One to Many relationship
+  M:M = Many to Many relationship
+```
+
+---
+
+## 🎨 FRONTEND COMPONENT TREE
+
+```
+App
+│
+├─ RootLayout
+│  ├─ Header
+│  │  ├─ Logo
+│  │  ├─ Navigation
+│  │  │  ├─ Link: Rent
+│  │  │  ├─ Link: Buy
+│  │  │  └─ Link: Post Property (if auth)
+│  │  └─ UserMenu (if authenticated)
+│  │     └─ DropdownMenu
+│  │        ├─ Avatar
+│  │        ├─ MenuItem: Dashboard
+│  │        ├─ MenuItem: Profile
+│  │        └─ MenuItem: Logout
+│  │
+│  ├─ Main (Dynamic Pages)
+│  │  │
+│  │  ├─ HomePage
+│  │  │  ├─ HeroSection
+│  │  │  │  ├─ Heading
+│  │  │  │  ├─ Description
+│  │  │  │  └─ CTAButtons
+│  │  │  ├─ FeaturesSection
+│  │  │  │  └─ FeatureCard × 3
+│  │  │  └─ CTASection
+│  │  │
+│  │  ├─ PropertiesPage (/properties)
+│  │  │  ├─ PageHeader
+│  │  │  │  └─ SearchBar
+│  │  │  │     ├─ LocationInput (Autocomplete)
+│  │  │  │     ├─ KeywordInput
+│  │  │  │     └─ SearchButton
+│  │  │  ├─ ContentArea (Grid)
+│  │  │  │  ├─ FilterPanel (Sidebar)
+│  │  │  │  │  ├─ PriceRangeFilter
+│  │  │  │  │  │  └─ Slider
+│  │  │  │  │  ├─ BHKFilter
+│  │  │  │  │  │  └─ Checkboxes
+│  │  │  │  │  ├─ PropertyTypeFilter
+│  │  │  │  │  │  └─ RadioGroup
+│  │  │  │  │  ├─ FurnishingFilter
+│  │  │  │  │  └─ ApplyFiltersButton
+│  │  │  │  │
+│  │  │  │  └─ PropertyList (Main)
+│  │  │  │     ├─ Toolbar
+│  │  │  │     │  ├─ ResultsCount
+│  │  │  │     │  ├─ SortDropdown
+│  │  │  │     │  └─ ViewToggle (Grid/List)
+│  │  │  │     ├─ PropertyGrid
+│  │  │  │     │  └─ PropertyCard × N
+│  │  │  │     │     ├─ ImageCarousel
+│  │  │  │     │     ├─ PropertyInfo
+│  │  │  │     │     │  ├─ Title
+│  │  │  │     │     │  ├─ Price
+│  │  │  │     │     │  ├─ Location
+│  │  │  │     │     │  └─ Features (BHK, Area)
+│  │  │  │     │     └─ ActionButtons
+│  │  │  │     │        ├─ FavoriteButton
+│  │  │  │     │        └─ ViewButton
+│  │  │  │     └─ Pagination
+│  │  │  │        ├─ PrevButton
+│  │  │  │        ├─ PageNumbers
+│  │  │  │        └─ NextButton
+│  │  │
+│  │  ├─ PropertyDetailPage (/properties/[id])
+│  │  │  ├─ PropertyHeader
+│  │  │  │  ├─ Title
+│  │  │  │  ├─ Address
+│  │  │  │  └─ ShareButton
+│  │  │  ├─ ImageGallery
+│  │  │  │  ├─ MainImage
+│  │  │  │  ├─ Thumbnails
+│  │  │  │  └─ Lightbox (modal)
+│  │  │  ├─ PropertyDetails (Grid)
+│  │  │  │  ├─ MainInfo (Left)
+│  │  │  │  │  ├─ Price
+│  │  │  │  │  ├─ Overview (BHK, Area, Type)
+│  │  │  │  │  ├─ Description
+│  │  │  │  │  ├─ Amenities
+│  │  │  │  │  │  └─ AmenityBadge × N
+│  │  │  │  │  └─ LocationMap
+│  │  │  │  │     └─ MapboxGL
+│  │  │  │  │
+│  │  │  │  └─ Sidebar (Right)
+│  │  │  │     ├─ OwnerCard
+│  │  │  │     │  ├─ Avatar
+│  │  │  │     │  ├─ Name
+│  │  │  │     │  └─ ContactButton
+│  │  │  │     ├─ ContactForm (Modal)
+│  │  │  │     │  ├─ MessageInput
+│  │  │  │     │  └─ SubmitButton
+│  │  │  │     └─ SimilarProperties
+│  │  │  │        └─ PropertyCard × 3
+│  │  │
+│  │  ├─ CreatePropertyPage (/properties/new)
+│  │  │  └─ PropertyFormWizard
+│  │  │     ├─ ProgressIndicator
+│  │  │     │  ├─ ProgressBar
+│  │  │     │  └─ StepIndicators × 7
+│  │  │     ├─ StepContent (Dynamic)
+│  │  │     │  ├─ Step1PropertyType
+│  │  │     │  │  ├─ PropertyTypeCards
+│  │  │     │  │  └─ ListingTypeRadios
+│  │  │     │  ├─ Step2BasicDetails
+│  │  │     │  │  └─ Form Fields
+│  │  │     │  ├─ Step3Location
+│  │  │     │  │  ├─ AddressAutocomplete
+│  │  │     │  │  │  └─ GooglePlaces
+│  │  │     │  │  └─ MapPicker
+│  │  │     │  │     └─ Mapbox
+│  │  │     │  ├─ Step4Amenities
+│  │  │     │  │  └─ AmenitiesGrid
+│  │  │     │  │     └─ Checkbox × N (grouped)
+│  │  │     │  ├─ Step5Photos
+│  │  │     │  │  ├─ DropZone
+│  │  │     │  │  ├─ ImagePreviews
+│  │  │     │  │  │  └─ DraggableImage × N
+│  │  │     │  │  └─ UploadButton
+│  │  │     │  ├─ Step6AdditionalDetails
+│  │  │     │  │  └─ Form Fields
+│  │  │     │  └─ Step7Review
+│  │  │     │     ├─ PropertySummary
+│  │  │     │     │  └─ EditButtons (per section)
+│  │  │     │     └─ SubmitButton
+│  │  │     └─ Navigation
+│  │  │        ├─ BackButton
+│  │  │        └─ NextButton
+│  │  │
+│  │  ├─ DashboardPage (/dashboard)
+│  │  │  ├─ WelcomeSection
+│  │  │  ├─ StatsCards (Grid)
+│  │  │  │  ├─ StatCard: Properties
+│  │  │  │  ├─ StatCard: Favorites
+│  │  │  │  ├─ StatCard: Leads
+│  │  │  │  └─ StatCard: Views
+│  │  │  ├─ QuickActions
+│  │  │  │  ├─ Button: Post Property
+│  │  │  │  └─ Button: Browse
+│  │  │  └─ MyProperties
+│  │  │     └─ PropertyCard × N
+│  │  │        (with Edit/Delete actions)
+│  │  │
+│  │  ├─ LoginPage (/login)
+│  │  │  └─ LoginCard
+│  │  │     └─ LoginForm
+│  │  │        ├─ EmailInput
+│  │  │        ├─ PasswordInput
+│  │  │        ├─ SubmitButton
+│  │  │        └─ SignUpLink
+│  │  │
+│  │  ├─ RegisterPage (/register)
+│  │  │  └─ RegisterCard
+│  │  │     └─ RegisterForm
+│  │  │        ├─ NameInput
+│  │  │        ├─ EmailInput
+│  │  │        ├─ PhoneInput
+│  │  │        ├─ RoleRadios
+│  │  │        ├─ PasswordInput
+│  │  │        ├─ ConfirmPasswordInput
+│  │  │        ├─ SubmitButton
+│  │  │        └─ LoginLink
+│  │  │
+│  │  └─ ProfilePage (/profile)
+│  │     ├─ ProfileCard
+│  │     │  └─ ProfileForm
+│  │     │     ├─ EmailInput (disabled)
+│  │     │     ├─ NameInput
+│  │     │     ├─ PhoneInput
+│  │     │     └─ UpdateButton
+│  │     └─ PasswordCard
+│  │        └─ PasswordForm
+│  │           ├─ CurrentPasswordInput
+│  │           ├─ NewPasswordInput
+│  │           ├─ ConfirmPasswordInput
+│  │           └─ ChangeButton
+│  │
+│  └─ Footer
+│     ├─ CompanyLinks
+│     ├─ ServicesLinks
+│     ├─ LegalLinks
+│     └─ SocialLinks
+│
+└─ Providers
+   ├─ Toaster (Toast notifications)
+   └─ AuthProvider (Context/Store)
+```
+
+---
+
+## 🌐 API ENDPOINT MAP
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      API ENDPOINTS                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  BASE URL: http://localhost:3001/api/v1                    │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  HEALTH                                                     │
+├─────────────────────────────────────────────────────────────┤
+│  GET    /health                  Health check with DB      │
+│  GET    /health/status           Simple status check       │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  AUTHENTICATION                                             │
+├─────────────────────────────────────────────────────────────┤
+│  POST   /auth/register           Register new user         │
+│  POST   /auth/login              Login & get tokens        │
+│  POST   /auth/refresh            Refresh access token      │
+│  GET    /auth/verify-email       Verify email with token   │
+│  POST   /auth/logout      🔒     Logout & invalidate token │
+│  GET    /auth/me          🔒     Get current user          │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  USERS                                                      │
+├─────────────────────────────────────────────────────────────┤
+│  GET    /users/me         🔒     Get profile               │
+│  PUT    /users/me         🔒     Update profile            │
+│  POST   /users/me/change-password 🔒  Change password      │
+│  DELETE /users/me         🔒     Delete account            │
+│  GET    /users/:id               Get user by ID (public)   │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  PROPERTIES                                                 │
+├─────────────────────────────────────────────────────────────┤
+│  POST   /properties       🔒     Create property           │
+│  GET    /properties              List properties (paginated)│
+│  GET    /properties/search       Search with filters       │
+│  GET    /properties/:id          Get single property       │
+│  PUT    /properties/:id   🔒     Update property (owner)   │
+│  DELETE /properties/:id   🔒     Delete property (owner)   │
+│  PATCH  /properties/:id/status 🔒 Toggle active/inactive   │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  PROPERTY IMAGES                                            │
+├─────────────────────────────────────────────────────────────┤
+│  POST   /properties/:id/images 🔒  Upload images           │
+│  DELETE /properties/images/:imageId 🔒 Delete image        │
+│  POST   /properties/images/:imageId/set-primary 🔒 Set primary │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  AMENITIES                                                  │
+├─────────────────────────────────────────────────────────────┤
+│  GET    /amenities               List all amenities        │
+│  GET    /amenities/:id           Get single amenity        │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  FAVORITES (Coming in Week 8)                              │
+├─────────────────────────────────────────────────────────────┤
+│  POST   /favorites        🔒     Add to favorites          │
+│  GET    /favorites        🔒     Get my favorites          │
+│  DELETE /favorites/:propertyId 🔒 Remove favorite          │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  LEADS (Coming in Week 9)                                  │
+├─────────────────────────────────────────────────────────────┤
+│  POST   /leads            🔒     Create lead/inquiry       │
+│  GET    /leads            🔒     Get my leads              │
+│  PATCH  /leads/:id        🔒     Update lead status        │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+
+Legend:
+  🔒 = Requires authentication (JWT token)
+```
+
+---
+
+This architecture document provides a comprehensive visual reference for understanding how the entire Plots Dekho platform is structured and how data flows through the system!
+
