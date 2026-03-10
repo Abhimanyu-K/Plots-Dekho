@@ -8,6 +8,9 @@ import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { PropertiesModule } from './modules/properties/properties.module';
+import { FavoritesModule } from './modules/favorites/favorites.module';
+import { SavedSearchesModule } from './modules/saved-searches/saved-searches.module';
+import { LeadsModule } from './modules/leads/leads.module';
 
 @Module({
   imports: [
@@ -20,6 +23,9 @@ import { PropertiesModule } from './modules/properties/properties.module';
     AuthModule,
     UsersModule,
     PropertiesModule,
+    FavoritesModule,
+    SavedSearchesModule,
+    LeadsModule,
   ],
 })
 export class AppModule {}
