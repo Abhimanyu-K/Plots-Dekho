@@ -113,4 +113,10 @@ export class CreatePropertyDto {
   @IsOptional()
   @IsEnum(PropertyStatus)
   status?: PropertyStatus;
+
+  @ApiProperty({ example: ['https://example.com/image.jpg'], required: false })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 }

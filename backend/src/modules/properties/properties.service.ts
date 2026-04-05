@@ -16,13 +16,22 @@ export class PropertiesService {
   constructor(private prisma: PrismaService) {}
 
   async create(userId: string, createPropertyDto: CreatePropertyDto): Promise<Property> {
-    const { amenities, ...propertyData } = createPropertyDto;
+    const { amenities, images, ...propertyData } = createPropertyDto;
 
-    // Create property
+    // Create property with images if provided
     const property = await this.prisma.property.create({
       data: {
         ...propertyData,
         userId,
+        ...(images && images.length > 0 && {
+          images: {
+            create: images.map((url, index) => ({
+              imageUrl: url,
+              isPrimary: index === 0,
+              order: index,
+            })),
+          },
+        }),
       },
       include: {
         user: {
@@ -233,7 +242,7 @@ export class PropertiesService {
       throw new ForbiddenException('You can only update your own properties');
     }
 
-    const { amenities, ...propertyData } = updatePropertyDto;
+    const { amenities, images, ...propertyData } = updatePropertyDto;
 
     // Update property
     const updatedProperty = await this.prisma.property.update({
