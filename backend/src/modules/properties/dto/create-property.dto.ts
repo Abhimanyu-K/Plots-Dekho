@@ -101,7 +101,8 @@ export class CreatePropertyDto {
   @ApiProperty({ example: '2024-04-01T00:00:00Z', required: false })
   @IsOptional()
   @IsDateString()
-  availableFrom?: string;
+  @Type(() => Date)
+  availableFrom?: Date;
 
   @ApiProperty({ example: ['gym', 'swimming-pool', 'parking'], required: false })
   @IsOptional()

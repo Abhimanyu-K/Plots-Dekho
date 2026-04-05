@@ -24,8 +24,8 @@ RUN npx prisma generate
 # Build application
 RUN npm run build
 
-# Verify dist exists
-RUN ls -la dist/main.js
+# Verify build output exists
+RUN ls -la dist/src/main.js
 
 # Production stage
 FROM node:18-alpine
@@ -50,4 +50,4 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 EXPOSE 3001
 
 # Start command - run migrations then start server
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main"]
