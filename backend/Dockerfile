@@ -14,7 +14,8 @@ COPY prisma ./prisma/
 # Install dependencies
 RUN npm ci
 
-# Copy source code
+# Copy source code (ARG busts cache when code changes)
+ARG CACHEBUST=1
 COPY . .
 
 # Generate Prisma Client
@@ -22,6 +23,9 @@ RUN npx prisma generate
 
 # Build application
 RUN npm run build
+
+# Verify dist exists
+RUN ls -la dist/main.js
 
 # Production stage
 FROM node:18-alpine
